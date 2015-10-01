@@ -27,7 +27,8 @@
        (lambda ()
          (match args
            handle ...
-           (else (error (format #f "Invalid instruction usage: ~a~%" doc)))))
+           (else
+            (throw 'lamtoi-err (format #f "Invalid instruction usage: ~a" doc)))))
        (lambda (k . e)
          (case k
            ((lamtoi-err) (display (car e)) (newline))
