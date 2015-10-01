@@ -22,9 +22,21 @@
   (define-public name
     (lambda args
       doc
-      (match args
-        handle ...
-        (else (error (format #f "Invalid instruction usage: ~a~%" doc)))))))
+      (catch
+       'lamtoi-err
+       (lambda ()
+         (match args
+           handle ...
+           (else (error (format #f "Invalid instruction usage: ~a~%" doc)))))
+       (lambda (k . e)
+         (case k
+           ((lamtoi-err) (display (car e)) (newline))
+           (else (throw k e))))))))
+
+(define (valid-step? n)
+  (or (and (integer? n) (positive? n) (<= 1000))
+      (throw 'lamtoi-err
+             (format #f "Invalid step `~a', should be between [0,1000]" n))))
 
 (define-syntax-rule (->instr name args ...)
   (format #f "~{~a~^ ~} ~a" (list args ...) 'name))
@@ -33,18 +45,18 @@
 (define-instruction pendown "(pendown)" (() (->instr pendown)))
 
 ;; equilateral triangle
-(define-instruction e-tri "(e-tri n)" ((n) (->instr e-tri n)))
+(define-instruction e-tri "(e-tri n)" (((? valid-step? n)) (->instr e-tri n)))
 
-(define-instruction hexagon "(hexagon n)" ((n) (->instr hexagon n)))
+(define-instruction hexagon "(hexagon n)" (((? valid-step? n)) (->instr hexagon n)))
 
 (define-instruction point "(point x y)"
-  (((? integer? x) (? integer? y)) (->instr point x y)))
+  (((? valid-step? x) (? valid-step? y)) (->instr point x y)))
 
 (define-instruction forward "(forward nSteps)"
-  ((? integer? n) (->instr forward n)))
+  (((? valid-step? n)) (->instr forward n)))
 
 (define-instruction back "(back nSteps)"
-  ((? integer? n) (->instr back n)))
+  (((? valid-step? n)) (->instr back n)))
 
 (define-instruction left "(left nSteps)" (() (->instr left)))
 (define-instruction right "(right nSteps)" (() (->instr right)))
@@ -61,7 +73,7 @@
        (else
         (point x y)
         (lp (1+ x) y (+ d (* 2 x) -1)))))))
-(define-instruction circle "(circle Rmm)" ((? integer? r) (draw-circle r)))
+(define-instruction circle "(circle Rmm)" (((? valid-step? r)) (draw-circle r)))
 
 ;; Bresenham Line Drawing Algorithm:
 ;; http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/bresenham.html
@@ -76,18 +88,18 @@
         (point x y)
         (lp (1+ x) y (+ d m)))))))
 (define-instruction line "(line x0 y0 x1 y1)"
-  (((? integer? x0) (? integer? y0) (? integer? x1) (? integer? y1))
+  (((? valid-step? x0) (? valid-step? y0) (? valid-step? x1) (? valid-step? y1))
    (draw-line x0 y0 x1 y1)))
 
 (define-instruction ellipse "(ellipse a b)"
-  (((? integer? a) (? integer? b)) (->instr ellipse a b)))
+  (((? valid-step? a) (? valid-step? b)) (->instr ellipse a b)))
 
 (define (draw-square n)
   (forward n) (right)
   (forward n) (right)
   (forward n) (right)
   (forward n))
-(define-instruction square "(square nMM)" ((? integer? n) (draw-square n)))
+(define-instruction square "(square nMM)" (((? valid-step? n)) (draw-square n)))
 
 (define (draw-rect len width)
   (forward len) (right)
@@ -95,5 +107,5 @@
   (forward len) (right)
   (forward width))
 (define-instruction rect "(rect lenMM widMM)"
-  (((? integer? len) (? integer? width))
+  (((? valid-step? len) (? valid-step? width))
    (draw-rect len width)))
