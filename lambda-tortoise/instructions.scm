@@ -15,8 +15,17 @@
 ;;  along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (lambda-tortoise instructions)
+  #:use-module (lambda-tortoise serial)
   #:use-module (ice-9 format)
-  #:use-module (ice-9 match))
+  #:use-module (ice-9 match)
+  #:export (parallel-run))
+
+(define is-parallel? (make-parameter #f))
+(define is-immdiate? (make-parameter #t))
+
+(define-syntax-rule (parallel-run body ...)
+  (parameterize ((is-parallel? #t) (is-immdiate? #f))
+    (begin body ...) (newline *tortoise*) (force-output *tortoise*)))
 
 (define-syntax-rule (define-instruction name doc handle ...)
   (define-public name
@@ -40,7 +49,10 @@
              (format #f "Invalid step `~a', should be between [0,1000]" n))))
 
 (define-syntax-rule (->instr name args ...)
-  (format #f "~{~a~^ ~} ~a" (list args ...) 'name))
+  (begin
+    (format *tortoise* "~a ~{~a~^ ~} m-run " 'name (list args ...))
+    (and (not (is-parallel?)) (newline *tortoise*))
+    (and (is-immdiate?) (force-output *tortoise*))))
 
 (define-instruction penup "(penup)" (() (->instr penup)))
 (define-instruction pendown "(pendown)" (() (->instr pendown)))
@@ -53,11 +65,18 @@
 (define-instruction point "(point x y)"
   (((? valid-step? x) (? valid-step? y)) (->instr point x y)))
 
-(define-instruction forward "(forward nSteps)"
-  (((? valid-step? n)) (->instr forward n)))
+(define (valid-speed? n) (and (>= n 0) (<= 4095)))
+(define (valid-motor? n) (or (= n 0) (= n 1)))
+(define-instruction forward "(forward speed motor)"
+  (((? valid-speed? speed) (? valid-motor? motor))
+   (->instr forward speed motor)))
 
-(define-instruction back "(back nSteps)"
-  (((? valid-step? n)) (->instr back n)))
+(define-instruction release "(release motor)"
+  (((? valid-motor? motor)) (->instr release motor)))
+
+(define-instruction backward "(backward speed motor)"
+  (((? valid-speed? speed) (? valid-motor? motor))
+   (->instr backward speed motor)))
 
 (define-instruction left "(left nSteps)" (() (->instr left)))
 (define-instruction right "(right nSteps)" (() (->instr right)))
